@@ -17,7 +17,7 @@ jobs:
 
       - name: Set up Android NDK
         id: ndk
-        uses: android-actions/setup-ndk@v2
+        uses: nttld/setup-ndk@v1
         with:
           ndk-version: 'r25b'   # choose a stable NDK
       - name: Print NDK path
