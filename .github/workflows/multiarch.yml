@@ -1,0 +1,140 @@
+name: Build & Release (multi-arch)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'   # runs when you push a semver tag like v0.1.0
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      ndk-path: ${{ steps.ndk.outputs.ndk_path }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Android NDK
+        id: ndk
+        uses: android-actions/setup-ndk@v2
+        with:
+          ndk-version: 'r25b'   # choose a stable NDK
+      - name: Print NDK path
+        run: echo "::set-output name=ndk_path::${{ env.ANDROID_NDK_HOME || runner.temp }}/ndk"
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk_path || '' }}
+
+  build-linux:
+    runs-on: ubuntu-latest
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ x86_64, aarch64 ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+      - name: Configure & build
+        run: |
+          mkdir -p build-${{ matrix.target }}
+          cd build-${{ matrix.target }}
+          if [ "${{ matrix.target }}" = "aarch64" ]; then
+            cmake -G Ninja .. \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_SYSTEM_NAME=Linux \
+              -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+          else
+            cmake -G Ninja .. -DCMAKE_BUILD_TYPE=Release
+          fi
+          ninja
+      - name: Archive binary
+        run: |
+          mkdir -p artifacts
+          BIN=$(basename $(find build-${{ matrix.target }} -maxdepth 1 -type f -executable | head -n1) || echo slipstream)
+          # if your target binary path differs, update this
+          cp build-${{ matrix.target }}/slipstream artifacts/slipstream-linux-${{ matrix.target }}
+          tar -czf slipstream-linux-${{ matrix.target }}.tar.gz -C artifacts .
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slipstream-linux-${{ matrix.target }}
+          path: slipstream-linux-${{ matrix.target }}.tar.gz
+
+  build-android:
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
+      - name: Configure and build with Android NDK
+        env:
+          ANDROID_NDK_HOME: ${{ steps.prepare.outputs.ndk-path }}
+        run: |
+          export ANDROID_NDK_HOME=${{ steps.prepare.outputs.ndk-path }}
+          mkdir -p android-build && cd android-build
+          # Use NDK's toolchain and Android toolchain file shipped with CMake
+          cmake .. \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_STL=c++_static
+          ninja
+          mkdir -p artifacts
+          cp slipstream artifacts/slipstream-android-arm64
+          zip -r slipstream-android-arm64.zip artifacts
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slipstream-android-arm64
+          path: slipstream-android-arm64.zip
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-android]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: slipstream-linux-aarch64
+          path: dl
+      - name: Download amd64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: slipstream-linux-x86_64
+          path: dl
+      - name: Download android artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: slipstream-android-arm64
+          path: dl
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name || 'manual' }}
+          name: Release ${{ github.ref_name || 'manual' }}
+          body: |
+            Multi-arch release built by CI
+            - linux x86_64
+            - linux aarch64
+            - android arm64-v8a
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dl/slipstream-linux-x86_64.tar.gz
+            dl/slipstream-linux-aarch64.tar.gz
+            dl/slipstream-android-arm64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
