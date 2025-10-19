@@ -73,6 +73,10 @@ add_executable(slipstream-client
 )
 target_link_libraries(slipstream-client PRIVATE m)
 target_link_libraries(slipstream-client PRIVATE picoquic-core)
+# Static linking of C++ libraries on some platforms
+if(NOT APPLE)
+    target_link_libraries(slipstream-client PRIVATE -static-libgcc -static-libstdc++)
+endif()
 if (BUILD_LOGLIB)
     target_link_libraries(slipstream-client PRIVATE picoquic-log)
 endif ()
@@ -88,6 +92,10 @@ add_executable(slipstream-server
 )
 target_link_libraries(slipstream-server PRIVATE m)
 target_link_libraries(slipstream-server PRIVATE picoquic-core)
+# Static linking of C++ libraries on some platforms
+if(NOT APPLE)
+    target_link_libraries(slipstream-server PRIVATE -static-libgcc -static-libstdc++)
+endif()
 if (BUILD_LOGLIB)
     target_link_libraries(slipstream-server PRIVATE picoquic-log)
 endif ()
