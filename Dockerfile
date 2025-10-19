@@ -20,6 +20,8 @@ RUN --mount=type=cache,target=/usr/src/app/cmake-build-release \
     -DCMAKE_MAKE_PROGRAM=ninja \
     -DCMAKE_C_COMPILER=clang \
     -DCMAKE_CXX_COMPILER=clang++ \
+    -DCMAKE_C_FLAGS=-static-libgcc \
+    -DCMAKE_CXX_FLAGS=-static-libstdc++ \
     -G Ninja \
     -S /usr/src/app \
     -B /usr/src/app/cmake-build-release && \
