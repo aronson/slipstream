@@ -25,6 +25,13 @@
 #include "SPCDNS/src/dns.h"
 #include "SPCDNS/src/mappings.h"
 
+volatile sig_atomic_t should_shutdown = 0;
+
+void client_sighandler(int signum) {
+    DBG_PRINTF("Signal %d received", signum);
+    should_shutdown = 1;
+}
+
 
 typedef struct st_slipstream_client_stream_ctx_t {
     struct st_slipstream_client_stream_ctx_t* next_stream;
@@ -316,6 +323,30 @@ int slipstream_client_sockloop_callback(picoquic_quic_t* quic, picoquic_packet_l
         if (client_ctx->ready) {
             slipstream_add_paths(client_ctx);
         }
+        if (should_shutdown) {
+            // Iterate and close all connections
+            picoquic_cnx_t* cnx = picoquic_get_first_cnx(quic);
+            bool has_unclosed = false;
+            while (cnx != NULL) {
+                DBG_PRINTF("CNX state: %d", cnx->cnx_state);
+                if (cnx->cnx_state != picoquic_state_disconnected) {
+                    has_unclosed = true;
+                }
+
+                picoquic_close(cnx, 0); // 0 = no error, or use appropriate error code
+
+                if (cnx->cnx_state == picoquic_state_draining) {
+                    picoquic_connection_disconnect(cnx);
+                }
+
+                cnx = picoquic_get_next_cnx(cnx);
+            }
+
+            if (!has_unclosed) {
+                DBG_PRINTF("All connections closed, shutting down.", NULL);
+                return -1;
+            }
+        }
     case picoquic_packet_loop_wake_up:
         if (callback_ctx == NULL) {
             return 0;
@@ -514,10 +545,7 @@ int slipstream_client_callback(picoquic_cnx_t* cnx,
     case picoquic_callback_close: /* Received connection close */
     case picoquic_callback_application_close: /* Received application close */
         printf("Connection closed.\n");
-        slipstream_client_free_context(client_ctx);
-        /* Remove the application callback */
-        picoquic_set_callback(cnx, NULL, NULL);
-        picoquic_close(cnx, 0);
+        should_shutdown = true;
         break;
     case picoquic_callback_prepare_to_send:
         /* Active sending API */
@@ -585,18 +613,6 @@ int slipstream_client_callback(picoquic_cnx_t* cnx,
             }
             // printf("[%lu:%d] recv->quic_send recv %d bytes into quic\n", stream_id, stream_ctx->fd, length_to_read);
             ssize_t bytes_read = recv(stream_ctx->fd, buffer, length_to_read, MSG_DONTWAIT);
-
-            // print the bytes as UTF-8 to stderr for debugging
-            fprintf(stdout, "[%lu:%d] raw bytes:\n", stream_id, stream_ctx->fd);
-            for (size_t i = 0; i < bytes_read; i++) {
-                if (buffer[i] >= 32 && buffer[i] <= 126) {
-                    fprintf(stdout, "%c", buffer[i]);
-                } else {
-                    fprintf(stdout, "\\x%02x", buffer[i]);
-                }
-            }
-            fprintf(stdout, "\n");
-
             // printf("[%lu:%d] recv->quic_send recv done %d bytes into quic\n", stream_id, stream_ctx->fd, bytes_read);
             if (bytes_read == 0) {
                 printf("Closed connection on sock %d on recv", stream_ctx->fd);
@@ -624,10 +640,6 @@ int slipstream_client_callback(picoquic_cnx_t* cnx,
     }
 
     return ret;
-}
-
-void client_sighandler(int signum) {
-    printf("Signal %d received\n", signum);
 }
 
 static int slipstream_connect(struct sockaddr_storage* server_address,

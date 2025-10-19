@@ -27,6 +27,13 @@
 #include "SPCDNS/src/dns.h"
 #include "SPCDNS/src/mappings.h"
 
+volatile sig_atomic_t should_shutdown = 0;
+
+void server_sighandler(int signum) {
+    DBG_PRINTF("Signal %d received", signum);
+    should_shutdown = 1;
+}
+
 char* server_domain_name = NULL;
 size_t server_domain_name_len = 0;
 
@@ -306,6 +313,30 @@ int slipstream_server_sockloop_callback(picoquic_quic_t* quic, picoquic_packet_l
         }
 
         break;
+    case picoquic_packet_loop_before_select:
+        if (should_shutdown) {
+            // Iterate and close all connections
+            picoquic_cnx_t* cnx = picoquic_get_first_cnx(quic);
+            bool has_unclosed = false;
+            while (cnx != NULL) {
+                if (cnx->cnx_state != picoquic_state_disconnected) {
+                    has_unclosed = true;
+                }
+
+                picoquic_close(cnx, 0); // 0 = no error, or use appropriate error code
+
+                if (cnx->cnx_state == picoquic_state_draining) {
+                    picoquic_connection_disconnect(cnx);
+                }
+
+                cnx = picoquic_get_next_cnx(cnx);
+            }
+
+            if (!has_unclosed) {
+                DBG_PRINTF("All connections closed, shutting down.", NULL);
+                return -1;
+            }
+        }
     default:
         break;
     }
@@ -550,6 +581,7 @@ int slipstream_server_callback(picoquic_cnx_t* cnx,
         /* Remove the application callback */
         picoquic_set_callback(cnx, NULL, NULL);
         picoquic_close(cnx, 0);
+        picoquic_wake_up_network_thread(server_ctx->thread_ctx);
         break;
     case picoquic_callback_prepare_to_send:
         /* Active sending API */
@@ -643,10 +675,6 @@ int slipstream_server_callback(picoquic_cnx_t* cnx,
     }
 
     return ret;
-}
-
-void server_sighandler(int signum) {
-    DBG_PRINTF("Signal %d received", signum);
 }
 
 int picoquic_slipstream_server(int server_port, const char* server_cert, const char* server_key,

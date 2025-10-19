@@ -77,7 +77,10 @@ int slipstream_packet_loop_(picoquic_network_thread_ctx_t* thread_ctx, picoquic_
 
     while (!thread_ctx->thread_should_close) {
         if (loop_callback) {
-            loop_callback(quic, picoquic_packet_loop_before_select, loop_callback_ctx, s_ctx);
+            int ret = loop_callback(quic, picoquic_packet_loop_before_select, loop_callback_ctx, s_ctx);
+            if (ret < 0) {
+                break;
+            }
         }
 
         size_t nb_slots_written = 0;
