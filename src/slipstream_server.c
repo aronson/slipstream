@@ -483,7 +483,11 @@ int slipstream_server_callback(picoquic_cnx_t* cnx,
                 perror("pthread_create() failed for thread1");
                 free(args);
             }
+#ifdef __APPLE__
+            pthread_setname_np("slipstream_io_copy");
+#else
             pthread_setname_np(thread, "slipstream_io_copy");
+#endif
             pthread_detach(thread);
 
         }
@@ -586,7 +590,11 @@ int slipstream_server_callback(picoquic_cnx_t* cnx,
                         perror("pthread_create() failed for thread1");
                         free(args);
                     }
+#ifdef __APPLE__
+                    pthread_setname_np("slipstream_server_poller");
+#else
                     pthread_setname_np(thread, "slipstream_server_poller");
+#endif
                     pthread_detach(thread);
                 }
                 if (bytes_read == 0) {

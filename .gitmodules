@@ -1,9 +1,12 @@
 [submodule "extern/picoquic"]
 	path = extern/picoquic
-	url = git@github.com:EndPositive/picoquic.git
+	url = https://github.com/endpositive/slipstream-picoquic.git
 [submodule "extern/SPCDNS"]
 	path = extern/SPCDNS
-	url = git@github.com:spc476/SPCDNS.git
+	url = https://github.com/spc476/SPCDNS.git
 [submodule "extern/lua-resty-base-encoding"]
 	path = extern/lua-resty-base-encoding
-	url = git@github.com:spacewander/lua-resty-base-encoding.git
+	url = https://github.com/spacewander/lua-resty-base-encoding.git
+[submodule "extern/quick_arg_parser"]
+	path = extern/quick_arg_parser
+	url = https://github.com/Dugy/quick_arg_parser.git
