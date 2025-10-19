@@ -483,7 +483,7 @@ int slipstream_server_callback(picoquic_cnx_t* cnx,
                 perror("pthread_create() failed for thread1");
                 free(args);
             }
-            pthread_setname_np(thread, "slipstream_io_copy");
+            pthread_setname_np("slipstream_io_copy");
             pthread_detach(thread);
 
         }
@@ -586,7 +586,7 @@ int slipstream_server_callback(picoquic_cnx_t* cnx,
                         perror("pthread_create() failed for thread1");
                         free(args);
                     }
-                    pthread_setname_np(thread, "slipstream_server_poller");
+                    pthread_setname_np("slipstream_server_poller");
                     pthread_detach(thread);
                 }
                 if (bytes_read == 0) {

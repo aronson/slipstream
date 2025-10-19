@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.13)
-project(slipstream C)
+project(slipstream C CXX)
 
 set(CMAKE_C_STANDARD 23)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_EXTENSIONS Off)
 
 set(PICOQUIC_FETCH_PTLS ON)
 
@@ -15,6 +18,8 @@ set(BUILD_LOGREADER OFF)
 set(BUILD_TESTING OFF)
 
 set(PICOQUIC_ADDITIONAL_C_FLAGS "" CACHE STRING "Additional C flags for picoquic")
+set(CMAKE_C_FLAGS "-fexceptions ${CMAKE_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS}")
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
@@ -56,11 +61,13 @@ set(COMMON_SOURCES
         extern/SPCDNS/src/netsimple.h
         extern/SPCDNS/src/output.c
         extern/SPCDNS/src/output.h
+
+        extern/quick_arg_parser/quick_arg_parser.hpp
 )
 
 # Client binary
 add_executable(slipstream-client
-        src/slipstream_client_cli.c
+        src/slipstream_client_cli.cpp
         src/slipstream_client.c
         ${COMMON_SOURCES}
 )
@@ -69,13 +76,12 @@ target_link_libraries(slipstream-client PRIVATE picoquic-core)
 if (BUILD_LOGLIB)
     target_link_libraries(slipstream-client PRIVATE picoquic-log)
 endif ()
-target_include_directories(slipstream-client PRIVATE include)
-target_include_directories(slipstream-client PRIVATE extern)
+target_include_directories(slipstream-client PRIVATE include extern extern/quick_arg_parser)
 set_picoquic_compile_settings(slipstream-client)
 
 # Server binary
 add_executable(slipstream-server
-        src/slipstream_server_cli.c
+        src/slipstream_server_cli.cpp
         src/slipstream_server.c
         src/slipstream_server_cc.c
         ${COMMON_SOURCES}
@@ -85,6 +91,5 @@ target_link_libraries(slipstream-server PRIVATE picoquic-core)
 if (BUILD_LOGLIB)
     target_link_libraries(slipstream-server PRIVATE picoquic-log)
 endif ()
-target_include_directories(slipstream-server PRIVATE include)
-target_include_directories(slipstream-server PRIVATE extern)
+target_include_directories(slipstream-server PRIVATE include extern extern/quick_arg_parser)
 set_picoquic_compile_settings(slipstream-server)
