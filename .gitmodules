@@ -1,6 +1,6 @@
 [submodule "extern/picoquic"]
 	path = extern/picoquic
-	url = https://github.com/aronson/slipstream-picoquic.git
+	url = https://github.com/endpositive/slipstream-picoquic.git
 [submodule "extern/SPCDNS"]
 	path = extern/SPCDNS
 	url = https://github.com/spc476/SPCDNS.git
