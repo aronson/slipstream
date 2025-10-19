@@ -2,6 +2,9 @@
 cmake-build-debug/
 cmake-build-release/
 qlog/
+.tmp.*
+.DS_Store
+build/
 
 sample_ticket_store.bin
 sample_token_store.bin
