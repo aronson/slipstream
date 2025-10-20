@@ -10,6 +10,3 @@
 [submodule "extern/quick_arg_parser"]
 	path = extern/quick_arg_parser
 	url = https://github.com/Dugy/quick_arg_parser.git
-[submodule "subprojects/brotli"]
-	path = subprojects/brotli
-	url = https://github.com/google/brotli.git

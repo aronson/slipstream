@@ -14,3 +14,5 @@ netem.sh
 docker-compose-resolver.yaml
 unbound.conf
 unbound2.conf
+
+.cache
