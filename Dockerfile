@@ -2,29 +2,32 @@ FROM debian:bookworm-slim AS builder
 
 WORKDIR /usr/src/app
 
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y \
-    meson \
-    cmake \
-    git \
-    pkg-config \
-    libssl-dev \
-    ninja-build \
-    clang
+        python3-pip \
+        cmake \
+        git \
+        pkg-config \
+        libssl-dev \
+        ninja-build \
+        gcc g++ && \
+    pip3 install --user --break-system-packages meson
 
 COPY . .
 
-RUN --mount=type=cache,target=/usr/src/app/meson-build-release \
-    CC=clang CXX=clang++ meson setup --wipe \
-    -Db_lto=true \
-    --buildtype=release \
-    --warnlevel=0 \
-    -Ddefault_library=static \
-    meson-build-release && \
-    meson compile -C meson-build-release && \
-    cp meson-build-release/slipstream-client . && \
-    cp meson-build-release/slipstream-server .
+RUN /root/.local/bin/meson setup \
+        -Db_lto=true \
+        --buildtype=release \
+        --warnlevel=0 \
+        -Ddefault_library=static \
+        meson-build-release && \
+    ninja -C meson-build-release && \
+    cp /usr/src/app/meson-build-release/slipstream-client . && \
+    cp /usr/src/app/meson-build-release/slipstream-server .
 
 FROM gcr.io/distroless/base-debian12 AS runtime
 
